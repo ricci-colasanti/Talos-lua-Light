@@ -691,6 +691,51 @@ When a woman gives birth, her parity increases by 1.
 
 Here's the full configuration with advanced fertility features:
 
+### The Advanced Population CSV
+
+First, let's create a population file with the additional columns needed for the advanced fertility model. Create a file called `population_advanced.csv`:
+
+```csv
+person_id,age,sex,area,alive,previous_area,partner_id,mother_id,father_id,parity,ethnicity,education,income
+1,25,F,1,true,0,0,0,0,0,White,tertiary,45000
+2,30,M,1,true,0,1,0,0,0,White,secondary,35000
+3,45,F,1,true,0,0,0,0,2,Asian,tertiary,52000
+4,68,M,1,true,0,0,0,0,0,Black,secondary,28000
+5,82,F,1,true,0,0,0,0,0,White,primary,15000
+6,2,M,1,true,0,0,0,3,0,Asian,primary,0
+7,15,F,1,true,0,0,0,0,0,White,secondary,0
+8,35,M,1,true,0,0,0,0,0,Black,tertiary,48000
+9,55,F,1,true,0,0,0,0,3,Asian,secondary,32000
+10,70,M,1,true,0,0,0,0,0,White,primary,18000
+11,5,F,1,true,0,0,0,9,0,Asian,primary,0
+12,40,M,1,true,0,0,0,0,0,Black,tertiary,55000
+13,60,F,1,true,0,0,0,0,0,White,secondary,30000
+14,75,M,1,true,0,0,0,0,0,Asian,primary,12000
+15,20,F,1,true,0,0,0,0,0,White,secondary,25000
+```
+
+**Columns explained:**
+
+| Column | Description |
+|--------|-------------|
+| `person_id` | Unique identifier for each individual |
+| `age` | Age in years |
+| `sex` | Gender (M/F) |
+| `area` | Geographic area (1-5) |
+| `alive` | Whether the person is alive (true/false) |
+| `previous_area` | Previous area before migration (for tracking) |
+| `partner_id` | ID of partner/spouse (0 if none) |
+| `mother_id` | ID of mother (0 if unknown) |
+| `father_id` | ID of father (0 if unknown) |
+| `parity` | Number of children a woman has had |
+| `ethnicity` | Ethnic group (White, Asian, Black, etc.) |
+| `education` | Highest education level (primary, secondary, tertiary) |
+| `income` | Annual income |
+
+### The Advanced Fertility Configuration
+
+Now, here's the complete configuration:
+
 ```yaml
 # config_advanced_fertility.yaml
 # Complete model with advanced fertility
@@ -805,7 +850,9 @@ models:
                   sex = math.random() < 0.5 and "F" or "M",
                   area = person.area,
                   alive = true,
+                  previous_area = person.area,
                   mother_id = person.person_id,
+                  father_id = person.partner_id or 0,
                   parity = 0,
                   ethnicity = person.ethnicity or "Unknown",
                   education = "none",
@@ -835,6 +882,69 @@ models:
           return population
         end
 ```
+
+### Running the Advanced Fertility Model
+
+Save the configuration as `config_advanced_fertility.yaml` and run it:
+
+```bash
+./talos config_advanced_fertility.yaml
+```
+
+### Expected Output
+
+```
+2024/01/15 10:00:00 ═══ Talos-Pure: Migration Microsimulation ═══
+2024/01/15 10:00:00 Iterations: 10
+2024/01/15 10:00:00 Population file: population_advanced.csv
+2024/01/15 10:00:00 ID column: person_id
+2024/01/15 10:00:00 Models loaded: 3
+2024/01/15 10:00:00 Loaded 15 individuals with 13 columns
+2024/01/15 10:00:00 Columns: [person_id age sex area alive previous_area partner_id mother_id father_id parity ethnicity education income]
+2024/01/15 10:00:00 Enabled models: 3
+2024/01/15 10:00:00   - age_increment (priority: 1)
+2024/01/15 10:00:00   - mortality (priority: 2)
+2024/01/15 10:00:00   - fertility (priority: 3)
+
+2024/01/15 10:00:00 ═══ Iteration 1/10 ═══
+2024/01/15 10:00:00   ▶ age_increment
+2024/01/15 10:00:00   ▶ mortality
+2024/01/15 10:00:00   ▶ fertility
+
+...
+
+2024/01/15 10:00:00 ═══ Simulation Complete ═══
+2024/01/15 10:00:00 Results saved to population_advanced_output.csv
+```
+
+### Examining the Output CSV
+
+After running the simulation, open `population_advanced_output.csv`:
+
+```csv
+person_id,age,sex,area,alive,previous_area,partner_id,mother_id,father_id,parity,ethnicity,education,income
+1,35,F,1,true,0,0,0,0,1,White,tertiary,45000
+2,40,M,1,true,0,1,0,0,0,White,secondary,35000
+3,55,F,1,true,0,0,0,0,3,Asian,tertiary,52000
+4,78,M,1,true,0,0,0,0,0,Black,secondary,28000
+5,92,F,1,true,0,0,0,0,0,White,primary,15000
+6,12,M,1,true,0,0,0,3,0,Asian,primary,0
+7,25,F,1,true,0,0,0,0,0,White,secondary,0
+8,45,M,1,true,0,0,0,0,0,Black,tertiary,48000
+9,65,F,1,true,0,0,0,0,4,Asian,secondary,32000
+10,80,M,1,true,0,0,0,0,0,White,primary,18000
+11,15,F,1,true,0,0,0,9,0,Asian,primary,0
+12,50,M,1,true,0,0,0,0,0,Black,tertiary,55000
+13,70,F,1,true,0,0,0,0,0,White,secondary,30000
+14,85,M,1,true,0,0,0,0,0,Asian,primary,12000
+15,30,F,1,true,0,0,0,0,0,White,secondary,25000
+16,0,M,1,true,1,1,0,15,0,White,none,0
+```
+
+Notice that:
+- Person 15 (age 20 in the original) is now 30 after 10 iterations
+- Person 16 is a newborn (age 0) with `mother_id = 15`, inheriting the mother's area, ethnicity, and other characteristics
+- Mothers' parity has been updated as they had children
 
 ---
 
