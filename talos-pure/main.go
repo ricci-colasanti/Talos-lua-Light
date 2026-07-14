@@ -29,18 +29,10 @@ type ModelConfig struct {
 	Parameters  map[string]interface{} `yaml:"parameters"`
 }
 
-// StatisticConfig defines a statistic to compute and display
-type StatisticConfig struct {
-	Name        string `yaml:"name"`
-	Description string `yaml:"description"`
-	Script      string `yaml:"script"` // Lua script that returns a table
-}
-
 // SimulationConfig holds the full simulation configuration
 type SimulationConfig struct {
 	Simulation SimulationParameters `yaml:"simulation"`
 	Models     []ModelConfig        `yaml:"models"`
-	Statistics []StatisticConfig    `yaml:"statistics"`
 }
 
 // SimulationParameters holds simulation-level settings
@@ -72,20 +64,16 @@ type LuaVM struct {
 }
 
 // NewLuaVM creates a new Lua VM with Talos-specific functions
-// The randomSeed parameter seeds Lua's random number generator for reproducibility
 func NewLuaVM(randomSeed int64) *LuaVM {
 	L := lua.NewState()
 
-	// Seed Lua's random number generator to match the YAML random_seed
-	// This ensures reproducible results across runs
+	// Seed Lua's random number generator for reproducibility
 	if randomSeed > 0 {
-		// math.randomseed() expects an integer
 		err := L.DoString(fmt.Sprintf("math.randomseed(%d)", randomSeed))
 		if err != nil {
 			log.Printf("Warning: Failed to seed Lua random: %v", err)
 		}
 	} else {
-		// If no seed provided, use current time (results won't be reproducible)
 		err := L.DoString(fmt.Sprintf("math.randomseed(%d)", time.Now().UnixNano()))
 		if err != nil {
 			log.Printf("Warning: Failed to seed Lua random: %v", err)
@@ -195,57 +183,6 @@ func (vm *LuaVM) ExecuteLuaScript(script string, population []map[string]interfa
 	return resultPop, nil
 }
 
-// ExecuteLuaStatistic executes a Lua script that returns a table for statistics
-func (vm *LuaVM) ExecuteLuaStatistic(script string, population []map[string]interface{}) (map[string]interface{}, error) {
-	// Convert population to Lua table
-	luaPop := vm.L.NewTable()
-	for _, person := range population {
-		luaPerson := vm.L.NewTable()
-		for k, v := range person {
-			luaPerson.RawSetString(k, toLuaValue(vm.L, v))
-		}
-		luaPop.Append(luaPerson)
-	}
-
-	vm.L.SetGlobal("population", luaPop)
-
-	// Execute the script
-	if err := vm.L.DoString(script); err != nil {
-		return nil, fmt.Errorf("failed to execute Lua statistic: %w", err)
-	}
-
-	// Get the statistic function
-	fn := vm.L.GetGlobal("statistic")
-	if fn.Type() != lua.LTFunction {
-		return nil, fmt.Errorf("script must define a 'statistic' function")
-	}
-
-	// Call the statistic function
-	if err := vm.L.CallByParam(lua.P{
-		Fn:      fn,
-		NRet:    1,
-		Protect: true,
-	}, luaPop); err != nil {
-		return nil, fmt.Errorf("failed to call statistic: %w", err)
-	}
-
-	// Get the result
-	result := vm.L.Get(-1)
-	vm.L.Pop(1)
-
-	// Convert Lua table to Go map
-	resultMap := make(map[string]interface{})
-	if tbl, ok := result.(*lua.LTable); ok {
-		tbl.ForEach(func(key lua.LValue, value lua.LValue) {
-			if key.Type() == lua.LTString {
-				resultMap[key.String()] = luaValueToGo(value)
-			}
-		})
-	}
-
-	return resultMap, nil
-}
-
 // ============================================
 // Lua Value Conversion
 // ============================================
@@ -303,7 +240,6 @@ func luaTableToSlice(tbl *lua.LTable) ([]map[string]interface{}, error) {
 
 // luaValueToGo converts Lua values to Go values
 func luaValueToGo(val lua.LValue) interface{} {
-	// Check for nil first
 	if val == lua.LNil {
 		return nil
 	}
@@ -316,7 +252,6 @@ func luaValueToGo(val lua.LValue) interface{} {
 	case lua.LString:
 		return string(v)
 	case *lua.LTable:
-		// Check if it's a list or map
 		isList := true
 		var listLen int
 		v.ForEach(func(key lua.LValue, value lua.LValue) {
@@ -334,7 +269,6 @@ func luaValueToGo(val lua.LValue) interface{} {
 			}
 			return result
 		}
-		// It's a map
 		result := map[string]interface{}{}
 		v.ForEach(func(key lua.LValue, value lua.LValue) {
 			if key.Type() == lua.LTString {
@@ -352,7 +286,6 @@ func luaValueToGo(val lua.LValue) interface{} {
 // ============================================
 
 func main() {
-	// Parse command line
 	if len(os.Args) < 2 {
 		log.Fatal("Usage: go run main.go <config.yaml>")
 	}
@@ -369,12 +302,12 @@ func main() {
 		log.Fatalf("Failed to parse YAML: %v", err)
 	}
 
-	// Validate ID column is specified
+	// Validate ID column
 	if simConfig.Simulation.IDColumn == "" {
 		log.Fatal("ERROR: id_column is required in simulation section of config.yaml")
 	}
 
-	// Set random seed if provided
+	// Set random seed
 	if simConfig.Simulation.RandomSeed > 0 {
 		rand.Seed(simConfig.Simulation.RandomSeed)
 	} else {
@@ -387,18 +320,16 @@ func main() {
 	log.Printf("ID column: %s", simConfig.Simulation.IDColumn)
 	log.Printf("Random seed: %d", simConfig.Simulation.RandomSeed)
 	log.Printf("Models loaded: %d", len(simConfig.Models))
-	log.Printf("Statistics defined: %d", len(simConfig.Statistics))
 
-	// 2. Load population data dynamically (pure Go, no SQLite!)
+	// 2. Load population
 	population, columns, err := loadPopulationDynamic(simConfig.Simulation.PopulationFile, simConfig.Simulation.IDColumn)
 	if err != nil {
 		log.Fatalf("Failed to load population: %v", err)
 	}
 
 	log.Printf("Loaded %d individuals with %d columns", len(population), len(columns))
-	log.Printf("Columns: %v", getColumnNames(columns))
 
-	// 3. Filter enabled models and sort by priority
+	// 3. Filter and sort models
 	enabledModels := filterEnabledModels(simConfig.Models)
 	sortModelsByPriority(enabledModels)
 
@@ -407,7 +338,7 @@ func main() {
 		log.Printf("  - %s (priority: %d)", model.Name, model.Priority)
 	}
 
-	// 4. Create Lua VM with seed for reproducibility
+	// 4. Create Lua VM
 	luaVM := NewLuaVM(simConfig.Simulation.RandomSeed)
 	defer luaVM.Close()
 
@@ -415,7 +346,6 @@ func main() {
 	for i := 0; i < simConfig.Simulation.Iterations; i++ {
 		log.Printf("\n═══ Iteration %d/%d ═══", i+1, simConfig.Simulation.Iterations)
 
-		// Execute each model in priority order
 		for _, model := range enabledModels {
 			switch model.Type {
 			case "lua_model":
@@ -427,12 +357,9 @@ func main() {
 				log.Fatalf("Model '%s' execution failed: %v", model.Name, err)
 			}
 		}
-
-		// Print statistics
-		printLuaStatistics(luaVM, simConfig.Statistics, population, i+1)
 	}
 
-	// 6. Save final population dynamically
+	// 6. Save results
 	if err := savePopulationDynamic(population, columns, simConfig.Simulation.OutputFile, simConfig.Simulation.IDColumn); err != nil {
 		log.Fatalf("Failed to save population: %v", err)
 	}
@@ -442,10 +369,9 @@ func main() {
 }
 
 // ============================================
-// Population Loading (Pure Go, No SQLite!)
+// Population Loading
 // ============================================
 
-// loadPopulationDynamic loads CSV with automatic column detection
 func loadPopulationDynamic(csvFile string, idColumn string) (Population, []ColumnInfo, error) {
 	file, err := os.Open(csvFile)
 	if err != nil {
@@ -463,7 +389,6 @@ func loadPopulationDynamic(csvFile string, idColumn string) (Population, []Colum
 		return nil, nil, fmt.Errorf("CSV file is empty")
 	}
 
-	// Detect columns from header
 	header := records[0]
 	columns := make([]ColumnInfo, len(header))
 	foundID := false
@@ -473,7 +398,6 @@ func loadPopulationDynamic(csvFile string, idColumn string) (Population, []Colum
 		if isKey {
 			foundID = true
 		}
-		// Try to determine type from first few rows
 		colType := "string"
 		for j := 1; j < len(records) && j < 5; j++ {
 			if len(records[j]) > i {
@@ -494,13 +418,11 @@ func loadPopulationDynamic(csvFile string, idColumn string) (Population, []Colum
 		}
 	}
 
-	// Validate that ID column exists
 	if !foundID {
 		return nil, nil, fmt.Errorf("ID column '%s' not found in CSV header. Available columns: %s",
 			idColumn, strings.Join(header, ", "))
 	}
 
-	// Load data into Population (slice of maps)
 	var population Population
 
 	for i := 1; i < len(records); i++ {
@@ -518,7 +440,6 @@ func loadPopulationDynamic(csvFile string, idColumn string) (Population, []Colum
 				continue
 			}
 
-			// Convert based on detected type
 			switch col.Type {
 			case "int":
 				if intVal, err := strconv.Atoi(val); err == nil {
@@ -548,9 +469,7 @@ func loadPopulationDynamic(csvFile string, idColumn string) (Population, []Colum
 // Model Execution
 // ============================================
 
-// executeLuaModel executes a Lua model
 func executeLuaModel(vm *LuaVM, model ModelConfig, population Population, verbose bool) (Population, error) {
-	// Get the Lua script
 	scriptInterface, ok := model.Parameters["script"]
 	if !ok {
 		return nil, fmt.Errorf("model '%s' missing 'script' parameter", model.Name)
@@ -567,7 +486,6 @@ func executeLuaModel(vm *LuaVM, model ModelConfig, population Population, verbos
 		log.Printf("  ▶ %s", model.Name)
 	}
 
-	// Convert Population to slice of maps for Lua
 	popSlice := []map[string]interface{}(population)
 
 	result, err := vm.ExecuteLuaScript(script, popSlice, model.Parameters)
@@ -579,49 +497,9 @@ func executeLuaModel(vm *LuaVM, model ModelConfig, population Population, verbos
 }
 
 // ============================================
-// Statistics Printing
+// Population Saving
 // ============================================
 
-// printLuaStatistics executes and displays Lua statistics
-func printLuaStatistics(vm *LuaVM, statistics []StatisticConfig, population Population, iteration int) {
-	if len(statistics) == 0 {
-		return
-	}
-
-	log.Printf("  📊 Statistics:")
-
-	popSlice := []map[string]interface{}(population)
-
-	for _, stat := range statistics {
-		if stat.Script == "" {
-			continue
-		}
-
-		result, err := vm.ExecuteLuaStatistic(stat.Script, popSlice)
-		if err != nil {
-			log.Printf("    ⚠️  Failed to compute '%s': %v", stat.Name, err)
-			continue
-		}
-
-		// Build result string
-		var resultParts []string
-		for k, v := range result {
-			resultParts = append(resultParts, fmt.Sprintf("%s: %v", k, v))
-		}
-
-		description := ""
-		if stat.Description != "" {
-			description = fmt.Sprintf(" (%s)", stat.Description)
-		}
-		log.Printf("    %s%s: %s", stat.Name, description, strings.Join(resultParts, ", "))
-	}
-}
-
-// ============================================
-// Population Saving (Pure Go, No SQLite!)
-// ============================================
-
-// savePopulationDynamic exports the final population to CSV
 func savePopulationDynamic(population Population, columns []ColumnInfo, outputFile string, idColumn string) error {
 	file, err := os.Create(outputFile)
 	if err != nil {
@@ -632,20 +510,17 @@ func savePopulationDynamic(population Population, columns []ColumnInfo, outputFi
 	writer := csv.NewWriter(file)
 	defer writer.Flush()
 
-	// Write header
 	colNames := getColumnNames(columns)
 	if err := writer.Write(colNames); err != nil {
 		return fmt.Errorf("failed to write header: %w", err)
 	}
 
-	// Sort population by ID column
 	sort.Slice(population, func(i, j int) bool {
 		id1 := fmt.Sprintf("%v", population[i][idColumn])
 		id2 := fmt.Sprintf("%v", population[j][idColumn])
 		return id1 < id2
 	})
 
-	// Write data
 	for _, row := range population {
 		record := make([]string, len(columns))
 		for i, col := range columns {
@@ -685,7 +560,6 @@ func savePopulationDynamic(population Population, columns []ColumnInfo, outputFi
 // Helper Functions
 // ============================================
 
-// getColumnNames returns a slice of column names
 func getColumnNames(columns []ColumnInfo) []string {
 	names := make([]string, len(columns))
 	for i, col := range columns {
@@ -694,7 +568,6 @@ func getColumnNames(columns []ColumnInfo) []string {
 	return names
 }
 
-// filterEnabledModels returns only enabled models
 func filterEnabledModels(models []ModelConfig) []ModelConfig {
 	var enabled []ModelConfig
 	for _, model := range models {
@@ -705,7 +578,6 @@ func filterEnabledModels(models []ModelConfig) []ModelConfig {
 	return enabled
 }
 
-// sortModelsByPriority sorts models by priority (lower = higher priority)
 func sortModelsByPriority(models []ModelConfig) {
 	sort.Slice(models, func(i, j int) bool {
 		return models[i].Priority < models[j].Priority

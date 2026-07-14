@@ -9,7 +9,6 @@ In this tutorial, you'll learn how to add fertility to your demographic model. W
 By the end of this tutorial, you'll be able to:
 - Add a fertility model to your simulation
 - Create new individuals (births) with appropriate characteristics
-- Track population growth and fertility statistics
 - Understand how to work with household-level data
 - Write complex Lua models that modify the population
 
@@ -212,84 +211,7 @@ end
 
 ---
 
-## Part 4: Adding Fertility Statistics
-
-Now let's add statistics to track fertility:
-
-### Births This Year
-
-```lua
-function statistic(population)
-  local births = 0
-  for _, person in ipairs(population) do
-    if person.age == 0 and person.alive == true then
-      births = births + 1
-    end
-  end
-  return { births_this_year = births }
-end
-```
-
-**In plain English:** "Count all the people who are age 0 and alive. These are this year's births."
-
-### Fertility Rate (Births per 1000 Women)
-
-```lua
-function statistic(population)
-  local births = 0
-  local women = 0
-  
-  for _, person in ipairs(population) do
-    if person.alive == true then
-      if person.age == 0 then
-        births = births + 1
-      end
-      if person.sex == "F" and person.age >= 15 and person.age < 50 then
-        women = women + 1
-      end
-    end
-  end
-  
-  local rate = 0
-  if women > 0 then
-    rate = (births / women) * 1000
-  end
-  
-  return { birth_rate_per_1000 = rate }
-end
-```
-
-**In plain English:** "Take the number of births this year, divide by the number of women of childbearing age, multiply by 1000. This gives births per 1000 women."
-
-### Newborns by Sex
-
-```lua
-function statistic(population)
-  local females = 0
-  local males = 0
-  
-  for _, person in ipairs(population) do
-    if person.age == 0 and person.alive == true then
-      if person.sex == "F" then
-        females = females + 1
-      else
-        males = males + 1
-      end
-    end
-  end
-  
-  return {
-    female_newborns = females,
-    male_newborns = males
-  }
-end
-```
-
-**In plain English:** "Count the number of female newborns and male newborns born this year."
-
----
-
-## Part 5: Adding Fertility to Our Configuration
+## Part 4: Adding Fertility to Our Configuration
 
 Here's our complete configuration with aging, mortality, and fertility:
 
@@ -396,111 +318,11 @@ models:
           
           return population
         end
-
-statistics:
-  - name: "population_status"
-    description: "Alive and dead counts"
-    script: |
-      function statistic(population)
-        local alive = 0
-        local dead = 0
-        for _, person in ipairs(population) do
-          if person.alive == true then
-            alive = alive + 1
-          else
-            dead = dead + 1
-          end
-        end
-        return { alive = alive, dead = dead }
-      end
-  
-  - name: "age_distribution"
-    description: "Age groups - alive only"
-    script: |
-      function statistic(population)
-        local children = 0
-        local adults = 0
-        local elderly = 0
-        
-        for _, person in ipairs(population) do
-          if person.alive == true then
-            local age = person.age
-            if age < 18 then
-              children = children + 1
-            elseif age >= 18 and age < 65 then
-              adults = adults + 1
-            else
-              elderly = elderly + 1
-            end
-          end
-        end
-        
-        return {
-          children = children,
-          adults = adults,
-          elderly = elderly
-        }
-      end
-  
-  - name: "fertility_stats"
-    description: "Births in current year"
-    script: |
-      function statistic(population)
-        local births = 0
-        for _, person in ipairs(population) do
-          if person.age == 0 and person.alive == true then
-            births = births + 1
-          end
-        end
-        return { births_this_year = births }
-      end
-  
-  - name: "sex_distribution"
-    description: "Sex distribution - alive only"
-    script: |
-      function statistic(population)
-        local females = 0
-        local males = 0
-        
-        for _, person in ipairs(population) do
-          if person.alive == true then
-            if person.sex == "F" then
-              females = females + 1
-            else
-              males = males + 1
-            end
-          end
-        end
-        
-        return { females = females, males = males }
-      end
-  
-  - name: "average_age"
-    description: "Average age - alive only"
-    script: |
-      function statistic(population)
-        local total_age = 0
-        local count = 0
-        
-        for _, person in ipairs(population) do
-          if person.alive == true then
-            total_age = total_age + person.age
-            count = count + 1
-          end
-        end
-        
-        local avg_age = 0
-        if count > 0 then
-          avg_age = total_age / count
-        end
-        
-        return { avg_age = avg_age }
-      end
 ```
 
 ---
 
-## Part 6: Running the Complete Model
+## Part 5: Running the Complete Model
 
 Save the configuration as `config_aging_mortality_fertility.yaml` and run it:
 
@@ -516,7 +338,6 @@ Save the configuration as `config_aging_mortality_fertility.yaml` and run it:
 2024/01/15 10:00:00 Population file: population.csv
 2024/01/15 10:00:00 ID column: person_id
 2024/01/15 10:00:00 Models loaded: 3
-2024/01/15 10:00:00 Statistics defined: 5
 2024/01/15 10:00:00 Loaded 10 individuals with 4 columns
 2024/01/15 10:00:00 Columns: [person_id age sex area alive]
 2024/01/15 10:00:00 Enabled models: 3
@@ -528,53 +349,26 @@ Save the configuration as `config_aging_mortality_fertility.yaml` and run it:
 2024/01/15 10:00:00   ▶ age_increment
 2024/01/15 10:00:00   ▶ mortality
 2024/01/15 10:00:00   ▶ fertility
-2024/01/15 10:00:00   📊 Statistics:
-2024/01/15 10:00:00     population_status (Alive and dead counts): alive: 9, dead: 1
-2024/01/15 10:00:00     age_distribution (Age groups): children: 2, adults: 5, elderly: 2
-2024/01/15 10:00:00     fertility_stats (Births in current year): births_this_year: 0
-2024/01/15 10:00:00     sex_distribution (Sex distribution): females: 4, males: 5
-2024/01/15 10:00:00     average_age (Average age): avg_age: 42.8
-
-...
 
 2024/01/15 10:00:00 ═══ Iteration 5/10 ═══
-2024/01/15 10:00:00   📊 Statistics:
-2024/01/15 10:00:00     population_status (Alive and dead counts): alive: 8, dead: 2
-2024/01/15 10:00:00     age_distribution (Age groups): children: 2, adults: 4, elderly: 2
-2024/01/15 10:00:00     fertility_stats (Births in current year): births_this_year: 1
-2024/01/15 10:00:00     sex_distribution (Sex distribution): females: 4, males: 4
-2024/01/15 10:00:00     average_age (Average age): avg_age: 43.2
+2024/01/15 10:00:00   ▶ age_increment
+2024/01/15 10:00:00   ▶ mortality
+2024/01/15 10:00:00   ▶ fertility
 
 ...
 
 2024/01/15 10:00:00 ═══ Iteration 10/10 ═══
-2024/01/15 10:00:00   📊 Statistics:
-2024/01/15 10:00:00     population_status (Alive and dead counts): alive: 7, dead: 4
-2024/01/15 10:00:00     age_distribution (Age groups): children: 2, adults: 3, elderly: 2
-2024/01/15 10:00:00     fertility_stats (Births in current year): births_this_year: 2
-2024/01/15 10:00:00     sex_distribution (Sex distribution): females: 3, males: 4
-2024/01/15 10:00:00     average_age (Average age): avg_age: 44.1
+2024/01/15 10:00:00   ▶ age_increment
+2024/01/15 10:00:00   ▶ mortality
+2024/01/15 10:00:00   ▶ fertility
 
 2024/01/15 10:00:00 ═══ Simulation Complete ═══
 2024/01/15 10:00:00 Results saved to population_complete.csv
 ```
 
-### Understanding the Results
-
-**Population Dynamics:**
-- **Iteration 1**: 9 alive (1 death, no births yet)
-- **Iteration 5**: 8 alive (1 birth, some deaths)
-- **Iteration 10**: 7 alive (2 births in final year, cumulative deaths)
-
-**What's happening?**
-1. People age each year
-2. Some older people die (5% chance for 30+)
-3. Some women give birth (5% chance for 15-49)
-4. The population changes in size and structure
-
 ---
 
-## Part 7: Why Model Order Matters
+## Part 6: Why Model Order Matters
 
 The order of models is crucial. Here's why we run them in this specific order:
 
@@ -618,7 +412,7 @@ End of Year
 
 ---
 
-## Part 8: Examining the Output CSV
+## Part 7: Examining the Output CSV
 
 After running the simulation, open `population_complete.csv`:
 
@@ -647,7 +441,7 @@ person_id,age,sex,area,alive
 
 ---
 
-## Part 9: Advanced Fertility - Age-Specific Rates
+## Part 8: Advanced Fertility - Age-Specific Rates
 
 ### The Problem
 
@@ -728,7 +522,7 @@ end
 
 ---
 
-## Part 10: Advanced Fertility - Copying Mother's Characteristics
+## Part 9: Advanced Fertility - Copying Mother's Characteristics
 
 ### The Problem
 
@@ -806,7 +600,7 @@ Now babies inherit their mother's ethnicity!
 
 ---
 
-## Part 11: Advanced Fertility - Tracking Mother-Child Relationships
+## Part 10: Advanced Fertility - Tracking Mother-Child Relationships
 
 ### The Problem
 
@@ -893,7 +687,7 @@ When a woman gives birth, her parity increases by 1.
 
 ---
 
-## Part 12: Complete Configuration with Advanced Fertility
+## Part 11: Complete Configuration with Advanced Fertility
 
 Here's the full configuration with advanced fertility features:
 
@@ -1040,113 +834,11 @@ models:
           
           return population
         end
-
-statistics:
-  - name: "population_status"
-    description: "Alive and dead counts"
-    script: |
-      function statistic(population)
-        local alive = 0
-        local dead = 0
-        for _, person in ipairs(population) do
-          if person.alive == true then
-            alive = alive + 1
-          else
-            dead = dead + 1
-          end
-        end
-        return { alive = alive, dead = dead }
-      end
-  
-  - name: "age_distribution"
-    description: "Age groups - alive only"
-    script: |
-      function statistic(population)
-        local children = 0
-        local adults = 0
-        local elderly = 0
-        
-        for _, person in ipairs(population) do
-          if person.alive == true then
-            local age = person.age
-            if age < 18 then
-              children = children + 1
-            elseif age >= 18 and age < 65 then
-              adults = adults + 1
-            else
-              elderly = elderly + 1
-            end
-          end
-        end
-        
-        return {
-          children = children,
-          adults = adults,
-          elderly = elderly
-        }
-      end
-  
-  - name: "fertility_stats"
-    description: "Births this year"
-    script: |
-      function statistic(population)
-        local births = 0
-        for _, person in ipairs(population) do
-          if person.age == 0 and person.alive == true then            births = births + 1
-          end
-        end
-        return { births_this_year = births }
-      end
-  
-  - name: "average_parity"
-    description: "Average children per woman (aged 15+)"
-    script: |
-      function statistic(population)
-        local total_children = 0
-        local women = 0
-        
-        for _, person in ipairs(population) do
-          if person.alive == true and person.sex == "F" and person.age >= 15 then
-            women = women + 1
-            total_children = total_children + (person.parity or 0)
-          end
-        end
-        
-        local avg = 0
-        if women > 0 then
-          avg = total_children / women
-        end
-        
-        return { avg_parity = avg }
-      end
-  
-  - name: "newborns_by_sex"
-    description: "Newborns by sex"
-    script: |
-      function statistic(population)
-        local females = 0
-        local males = 0
-        
-        for _, person in ipairs(population) do
-          if person.age == 0 and person.alive == true then
-            if person.sex == "F" then
-              females = females + 1
-            else
-              males = males + 1
-            end
-          end
-        end
-        
-        return {
-          female_newborns = females,
-          male_newborns = males
-        }
-      end
 ```
 
 ---
 
-## Part 13: What You've Accomplished
+## Part 12: What You've Accomplished
 
 Congratulations! You now have a complete demographic microsimulation model with:
 
@@ -1157,7 +849,6 @@ Congratulations! You now have a complete demographic microsimulation model with:
 5. ✅ **Mother-Child Links**: Track which mother had which child
 6. ✅ **Parity Tracking**: Track how many children each woman has
 7. ✅ **Population Growth**: Births and deaths change population size
-8. ✅ **Comprehensive Statistics**: Track population dynamics
 
 ### The Full Demographic Cycle
 
@@ -1199,7 +890,7 @@ Congratulations! You now have a complete demographic microsimulation model with:
 
 ---
 
-## Part 14: What You Can Do Next
+## Part 13: What You Can Do Next
 
 ### 1. Add Education Models
 
@@ -1324,9 +1015,7 @@ end
 | Concept | What it does | Example |
 |---------|--------------|---------|
 | `table.insert()` | Add to list | `table.insert(list, item)` |
-| `#` | Count items | `#population` |
 | `math.random()` | Random number | `math.random()` or `math.random(1, 10)` |
-| `..` | Concatenate strings | `"Hello " .. "World"` |
 | `and` / `or` | Logical operators | `if person.alive and person.sex == "F"` |
 | `{}` | Create table | `{ name = "John", age = 25 }` |
 | `for` loop | Iterate | `for _, person in ipairs(population) do` |

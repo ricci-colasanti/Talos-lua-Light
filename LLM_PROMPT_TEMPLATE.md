@@ -11,7 +11,6 @@ Talos is a self-contained demographic microsimulation engine. Models are defined
 **Core Concepts:**
 - **Population**: CSV file with one row per person
 - **Models**: Lua scripts that transform the population each year
-- **Statistics**: Lua scripts that compute metrics about the population
 - **YAML**: Configuration file that ties everything together
 
 **Data Structure:**
@@ -27,12 +26,6 @@ function transition(population, params)
     -- Your logic here
   end
   return population
-end
-
--- Statistic: computes metrics each year
-function statistic(population)
-  -- Your logic here
-  return { result = value }
 end
 ```
 
@@ -67,15 +60,6 @@ models:
           -- Your model logic here
           return population
         end
-
-statistics:
-  - name: "statistic_name"
-    description: "What this statistic shows"
-    script: |
-      function statistic(population)
-        -- Your statistic logic here
-        return { result = value }
-      end
 ```
 
 ---
@@ -270,253 +254,6 @@ end
 
 ---
 
-## Statistics Examples
-
-### 1. Population Count
-```lua
-function statistic(population)
-  return { total = #population }
-end
-```
-
-### 2. Alive/Dead Count
-```lua
-function statistic(population)
-  local alive = 0
-  local dead = 0
-  for _, person in ipairs(population) do
-    if person.alive == true then
-      alive = alive + 1
-    else
-      dead = dead + 1
-    end
-  end
-  return { alive = alive, dead = dead }
-end
-```
-
-### 3. Age Distribution
-```lua
-function statistic(population)
-  local children = 0
-  local adults = 0
-  local elderly = 0
-  
-  for _, person in ipairs(population) do
-    if person.alive == true then
-      local age = person.age
-      if age < 18 then
-        children = children + 1
-      elseif age >= 18 and age < 65 then
-        adults = adults + 1
-      else
-        elderly = elderly + 1
-      end
-    end
-  end
-  
-  return {
-    children = children,
-    adults = adults,
-    elderly = elderly
-  }
-end
-```
-
-### 4. Sex Distribution
-```lua
-function statistic(population)
-  local females = 0
-  local males = 0
-  
-  for _, person in ipairs(population) do
-    if person.alive == true then
-      if person.sex == "F" then
-        females = females + 1
-      else
-        males = males + 1
-      end
-    end
-  end
-  
-  return { females = females, males = males }
-end
-```
-
-### 5. Average Age
-```lua
-function statistic(population)
-  local total_age = 0
-  local count = 0
-  
-  for _, person in ipairs(population) do
-    if person.alive == true then
-      total_age = total_age + person.age
-      count = count + 1
-    end
-  end
-  
-  local avg_age = 0
-  if count > 0 then
-    avg_age = total_age / count
-  end
-  
-  return { avg_age = avg_age }
-end
-```
-
-### 6. Age Range
-```lua
-function statistic(population)
-  local youngest = nil
-  local oldest = nil
-  
-  for _, person in ipairs(population) do
-    if person.alive == true then
-      if youngest == nil or person.age < youngest then
-        youngest = person.age
-      end
-      if oldest == nil or person.age > oldest then
-        oldest = person.age
-      end
-    end
-  end
-  
-  return {
-    youngest = youngest or 0,
-    oldest = oldest or 0
-  }
-end
-```
-
-### 7. Births Per Year
-```lua
-function statistic(population)
-  local births = 0
-  for _, person in ipairs(population) do
-    if person.age == 0 and person.alive == true then
-      births = births + 1
-    end
-  end
-  return { births_this_year = births }
-end
-```
-
-### 8. Dependency Ratio
-```lua
-function statistic(population)
-  local dependents = 0
-  local workers = 0
-  
-  for _, person in ipairs(population) do
-    if person.alive == true then
-      if person.age < 18 or person.age >= 65 then
-        dependents = dependents + 1
-      else
-        workers = workers + 1
-      end
-    end
-  end
-  
-  local ratio = 0
-  if workers > 0 then
-    ratio = (dependents / workers) * 100
-  end
-  
-  return { dependency_ratio = ratio }
-end
-```
-
-### 9. Migration Statistics
-```lua
-function statistic(population)
-  local migrants = 0
-  local total = 0
-  
-  for _, person in ipairs(population) do
-    if person.alive == true then
-      total = total + 1
-      if person.previous_area ~= nil and person.previous_area ~= person.area then
-        migrants = migrants + 1
-      end
-    end
-  end
-  
-  local rate = 0
-  if total > 0 then
-    rate = (migrants / total) * 100
-  end
-  
-  return {
-    migrants = migrants,
-    total = total,
-    migration_rate_pct = rate
-  }
-end
-```
-
-### 10. Area Distribution
-```lua
-function statistic(population)
-  local areas = {}
-  for _, person in ipairs(population) do
-    if person.alive == true then
-      local area = tostring(person.area)
-      if areas[area] == nil then
-        areas[area] = { total = 0, alive = 0 }
-      end
-      areas[area].total = areas[area].total + 1
-      if person.alive == true then
-        areas[area].alive = areas[area].alive + 1
-      end
-    end
-  end
-  return areas
-end
-```
-
-### 11. Household Statistics
-```lua
-function statistic(population)
-  local households = {}
-  
-  for _, person in ipairs(population) do
-    if person.alive == true and person.household_id ~= nil then
-      local hid = tostring(person.household_id)
-      if households[hid] == nil then
-        households[hid] = { size = 0, adults = 0, children = 0 }
-      end
-      households[hid].size = households[hid].size + 1
-      if person.age >= 18 then
-        households[hid].adults = households[hid].adults + 1
-      else
-        households[hid].children = households[hid].children + 1
-      end
-    end
-  end
-  
-  local total_households = 0
-  local total_size = 0
-  local avg_size = 0
-  
-  for _, h in pairs(households) do
-    total_households = total_households + 1
-    total_size = total_size + h.size
-  end
-  
-  if total_households > 0 then
-    avg_size = total_size / total_households
-  end
-  
-  return {
-    total_households = total_households,
-    avg_household_size = avg_size
-  }
-end
-```
-
----
-
 ## YAML Configuration Template
 
 ```yaml
@@ -549,18 +286,6 @@ models:
 
   # --- MODEL 2: [YOUR MODEL HERE] ---
   # Add more models here
-
-statistics:
-  # --- STATISTIC 1: Total Population ---
-  - name: "population_total"
-    description: "Total population"
-    script: |
-      function statistic(population)
-        return { total = #population }
-      end
-
-  # --- STATISTIC 2: [YOUR STATISTIC HERE] ---
-  # Add more statistics here
 ```
 
 ---
@@ -571,7 +296,6 @@ statistics:
 2. **Describe what you want to build** with one of these prompts:
    - "I want to build a model that does [X]"
    - "My population has columns [A, B, C]"
-   - "I want to track statistics [Y, Z]"
 3. **The LLM will generate** the YAML and Lua code for you
 4. **Test it** by running Talos with your new configuration
 5. **Iterate** - ask follow-up questions to refine your model
@@ -583,20 +307,15 @@ statistics:
 2. "I need a fertility model where fertility rates vary by age: 15-19: 2%, 20-24: 8%, 25-29: 10%, 30-34: 8%, 35-39: 4%, 40-44: 1%"
 3. "How do I create an education model where children progress through primary, secondary, and tertiary education?"
 
-### Statistics
-4. "How do I create a statistic that shows the median age of the population?"
-5. "I want a statistic that shows the dependency ratio (children + elderly / working age)."
-6. "How do I create a statistic that shows household size distribution?"
-
 ### Complex Models
-7. "I want migration to depend on distance between areas. How do I implement this?"
-8. "I need a household formation model where young adults leave their parents' household."
-9. "How do I model income where it depends on age, education, and sex?"
+4. "I want migration to depend on distance between areas. How do I implement this?"
+5. "I need a household formation model where young adults leave their parents' household."
+6. "How do I model income where it depends on age, education, and sex?"
 
 ### Advanced
-10. "How do I add a new column to each person when they get married?"
-11. "I want to track the number of children each woman has (parity)."
-12. "How do I model international migration where people leave permanently?"
+7. "How do I add a new column to each person when they get married?"
+8. "I want to track the number of children each woman has (parity)."
+9. "How do I model international migration where people leave permanently?"
 
 ---
 
@@ -684,3 +403,5 @@ models:
 ```
 
 ---
+
+**Copy and paste this entire message to get started!** 🚀

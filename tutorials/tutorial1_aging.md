@@ -21,7 +21,6 @@ By the end of this tutorial, you'll be able to:
 **Important Note:** You don't need to be a programmer to use Talos! We're using **Lua**, a simple and readable scripting language, for our models. Think of it as writing instructions in plain English:
 
 - **Change**: "Make everyone one year older" → `person.age = person.age + 1`
-- **Ask**: "How many people are there?" → `return { total = #population }`
 
 No complex programming, no compilation - just simple instructions that read like plain English!
 
@@ -112,16 +111,14 @@ For Talos, you only need to know a handful of Lua concepts:
 
 | Concept | What it does | Example |
 |---------|--------------|---------|
-| `function` | Defines a model or statistic | `function transition(population, params)` |
+| `function` | Defines a model | `function transition(population, params)` |
 | `for` | Loops through people | `for _, person in ipairs(population) do` |
 | `if` | Checks a condition | `if person.alive == true then` |
 | `==` | Compares values | `person.alive == true` |
 | `=` | Assigns a value | `person.age = person.age + 1` |
 | `return` | Returns a result | `return population` |
-| `#` | Counts items | `#population` |
-| `{}` | Creates a result table | `{ total = #population }` |
 
-**That's it!** These 8 concepts are all you need for most demographic models.
+**That's it!** These 6 concepts are all you need for most demographic models.
 
 ---
 
@@ -194,14 +191,6 @@ models:
           end
           return population
         end
-
-statistics:
-  - name: "population_total"
-    description: "Total population"
-    script: |
-      function statistic(population)
-        return { total = #population }
-      end
 ```
 
 ---
@@ -228,7 +217,6 @@ You should see output similar to this:
 2024/01/15 10:00:00 Population file: population.csv
 2024/01/15 10:00:00 ID column: person_id
 2024/01/15 10:00:00 Models loaded: 1
-2024/01/15 10:00:00 Statistics defined: 1
 2024/01/15 10:00:00 Loaded 10 individuals with 4 columns
 2024/01/15 10:00:00 Columns: [person_id age sex area alive]
 2024/01/15 10:00:00 Enabled models: 1
@@ -236,28 +224,18 @@ You should see output similar to this:
 
 2024/01/15 10:00:00 ═══ Iteration 1/5 ═══
 2024/01/15 10:00:00   ▶ age_increment
-2024/01/15 10:00:00   📊 Statistics:
-2024/01/15 10:00:00     population_total (Total population): total: 10
 
 2024/01/15 10:00:00 ═══ Iteration 2/5 ═══
 2024/01/15 10:00:00   ▶ age_increment
-2024/01/15 10:00:00   📊 Statistics:
-2024/01/15 10:00:00     population_total (Total population): total: 10
 
 2024/01/15 10:00:00 ═══ Iteration 3/5 ═══
 2024/01/15 10:00:00   ▶ age_increment
-2024/01/15 10:00:00   📊 Statistics:
-2024/01/15 10:00:00     population_total (Total population): total: 10
 
 2024/01/15 10:00:00 ═══ Iteration 4/5 ═══
 2024/01/15 10:00:00   ▶ age_increment
-2024/01/15 10:00:00   📊 Statistics:
-2024/01/15 10:00:00     population_total (Total population): total: 10
 
 2024/01/15 10:00:00 ═══ Iteration 5/5 ═══
 2024/01/15 10:00:00   ▶ age_increment
-2024/01/15 10:00:00   📊 Statistics:
-2024/01/15 10:00:00     population_total (Total population): total: 10
 
 2024/01/15 10:00:00 ═══ Simulation Complete ═══
 2024/01/15 10:00:00 Results saved to population_aged.csv
@@ -299,7 +277,7 @@ Notice that everyone has aged exactly 5 years:
 
 ## Understanding Your Configuration
 
-Now let's break down what the configuration does. The structure is simple - three main sections:
+Now let's break down what the configuration does. The structure is simple - two main sections:
 
 ### 1. The Simulation Section
 
@@ -397,10 +375,6 @@ When Talos runs your model, it needs to know which function to execute. Rather t
 
 By requiring a specific function name, Talos can reliably find and run your model every year.
 
-### The Same Applies to Statistics
-
-Statistics are also described as Lua functions. All statistic functions are called **`statistic`** functions. They calculate and return metrics about your population each year.
-
 ### What Happens If You Use a Different Name?
 
 If you call your model function something else, Talos won't find it and will throw an error:
@@ -434,14 +408,12 @@ end
 | Script Type | Required Function Name | What It Does |
 |-------------|------------------------|--------------|
 | Model | `transition(population, params)` | Runs each year, transforms the population |
-| Statistic | `statistic(population)` | Runs each year, returns a result table |
 
-**Remember:** The function name must be **exactly** `transition` or `statistic` - case-sensitive!
+**Remember:** The function name must be **exactly** `transition` - case-sensitive!
 
 | Correct | Incorrect |
 |---------|-----------|
 | `function transition(population, params)` | `function Transition(population, params)` |
-| `function statistic(population)` | `function my_statistic(population)` |
 
 ### Understanding `ipairs`
 
@@ -626,7 +598,6 @@ Population = {
 | Concept | Explanation |
 |---------|-------------|
 | `transition` | **Required name** for model functions |
-| `statistic` | **Required name** for statistic functions |
 | `ipairs` | Loops through a list in order |
 | `_` | Means "I don't need this value" |
 | `person` | The current person being processed |
@@ -636,38 +607,9 @@ Population = {
 
 ---
 
-## Understanding the Statistics Script
-
-Now let's look at our statistics script with this new understanding:
-
-```lua
-function statistic(population)
-  return { total = #population }
-end
-```
-
-**Line by line, with full explanation:**
-
-| Line | Code | What it does |
-|------|------|--------------|
-| 1 | `function statistic(population)` | Defines the statistic function (MUST be called `statistic`) |
-| 2 | `  return { total = #population }` | Returns a result table with `total` = number of people |
-
-**What is `#population`?**
-
-`#` is Lua's **length operator**. It counts the number of items in a list. So `#population` means "the number of people in the population list."
-
-**In plain English:**
-
-> "Count how many people there are and return that number."
-
-**Why do we need this?** The statistic shows us the total population count at each iteration. Since we're only aging people (not adding or removing anyone), the total should always be 10. This confirms our model is working correctly.
-
----
-
 ## Understanding the Configuration Structure
 
-Now let's put it all together. The configuration has three main sections:
+Now let's put it all together. The configuration has two main sections:
 
 ### 1. Simulation Section
 - Controls how the simulation runs
@@ -684,13 +626,6 @@ Now let's put it all together. The configuration has three main sections:
   - `priority`: When to run it (lower = earlier)
   - `script`: The Lua code that does the work (MUST have a `transition` function)
 
-### 3. Statistics Section
-- Defines what to measure and report
-- Each statistic has:
-  - `name`: What to call it
-  - `description`: What it shows
-  - `script`: The Lua code that calculates it (MUST have a `statistic` function)
-
 ---
 
 ## What You've Accomplished
@@ -701,10 +636,9 @@ Congratulations! You've successfully:
 2. ✅ Written a YAML configuration file
 3. ✅ Run a Talos simulation
 4. ✅ Aged an entire population by 5 years
-5. ✅ Tracked population totals
-6. ✅ Understood how Lua connects to your CSV data
-7. ✅ Learned that model functions must be called `transition` and statistic functions must be called `statistic`
-8. ✅ Understood why the `id_column` is required
+5. ✅ Understood how Lua connects to your CSV data
+6. ✅ Learned that model functions must be called `transition`
+7. ✅ Understood why the `id_column` is required
 
 You now know the basic workflow for using Talos.
 
@@ -715,7 +649,7 @@ You now know the basic workflow for using Talos.
 In the next tutorial, we'll dive deeper into YAML and Lua. You'll learn:
 
 - **YAML rules**: Why indentation matters, why you need the pipe (`|`) for multi-line strings, and how to avoid common mistakes
-- **More Lua**: Adding more statistics like age groups, sex distribution, and age range
+- **More Lua**: Working with age and conditions in your models
 - **Column name matching**: Why column names must match your CSV exactly
 - **Mortality**: Adding a mortality model to make your simulation more realistic
 
@@ -723,4 +657,4 @@ For now, take a moment to appreciate what you've built - a working demographic m
 
 ---
 
-**Tutorial 2 Preview:** We'll explore the YAML and Lua rules in detail, add more statistics like age groups and sex distribution, then add a mortality model with age-specific death probabilities.
+**Tutorial 2 Preview:** We'll explore the YAML and Lua rules in detail and add a mortality model with age-specific death probabilities.

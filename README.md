@@ -106,7 +106,7 @@ Get started with Talos through our step-by-step tutorials. Each tutorial builds 
 | Tutorial | Description | Level |
 |----------|-------------|-------|
 | [Tutorial 1: Building an Aging Model](tutorials/tutorial1_aging.md) | Learn the basics by creating a simple aging model. You'll create a population CSV, write your first configuration, run the simulation, and analyze the output. | ⭐ Beginner |
-| [Tutorial 2: Understanding YAML and Adding Mortality](tutorials/tutorial2_yaml_mortality.md) | Dive deeper into YAML rules. Learn how to add a mortality model with age-specific death probabilities and create age distribution statistics to track population changes. | ⭐⭐ Intermediate |
+| [Tutorial 2: Understanding YAML and Adding Mortality](tutorials/tutorial2_yaml_mortality.md) | Dive deeper into YAML rules. Learn how to add a mortality model with age-specific death probabilities and track population changes. | ⭐⭐ Intermediate |
 | [Tutorial 3: Adding Fertility](tutorials/tutorial3_fertility.md) | Complete the demographic cycle by adding fertility. Learn how to create new individuals (births), assign their characteristics, track population growth, and understand the full demographic cycle of aging, mortality, and fertility. | ⭐⭐⭐ Advanced |
 
 ## Key Features
@@ -115,7 +115,6 @@ Get started with Talos through our step-by-step tutorials. Each tutorial builds 
 - **Age-Specific Migration Probabilities**: Different migration rates for children, young adults, middle-aged, and elderly populations
 - **Area Tracking**: Tracks current and previous areas for migration history analysis
 - **Random Destination Selection**: Migrants choose from multiple destination areas
-- **Migration Statistics**: Automatic tracking of migration rates, flows, and patterns
 - **Flexible Migration Logic**: Easily modify migration rules through YAML configuration
 
 ### General Features
@@ -124,10 +123,8 @@ Get started with Talos through our step-by-step tutorials. Each tutorial builds 
 - **Fully Dynamic Data Handling**: Automatically detects and adapts to any CSV column structure
 - **Lua-Based Models**: Define complex demographic transitions using clean, readable Lua scripts
 - **Parameter Substitution**: Use parameters like `{fertility_rate}` in Lua scripts for flexible configuration
-- **Configurable Statistics**: Define any Lua function as a statistic to track population metrics
 - **Priority-Based Execution**: Models run in specified priority order (age, mortality, migration)
 - **In-Memory Processing**: Fast, in-memory Go data structures for population data
-- **Checkpoint Output**: Results saved as CSV for further analysis
 - **Reproducible Results**: Fixed random seeds for consistent simulation outcomes
 
 ## Migration Model
@@ -313,61 +310,6 @@ models:
         end
 ```
 
-### Statistics Definitions
-
-Statistics are Lua functions that return tables:
-
-```yaml
-statistics:
-  - name: "migration_stats"
-    description: "Migration statistics"
-    script: |
-      function statistic(population)
-        local migrants = 0
-        local total = 0
-        
-        for _, person in ipairs(population) do
-          if person.alive == true then
-            total = total + 1
-            if person.previous_area ~= nil and person.previous_area ~= person.area then
-              migrants = migrants + 1
-            end
-          end
-        end
-        
-        local rate = 0
-        if total > 0 then
-          rate = (migrants / total) * 100
-        end
-        
-        return {
-          migrants = migrants,
-          total = total,
-          migration_rate_pct = rate
-        }
-      end
-  
-  - name: "area_distribution"
-    description: "Population by area"
-    script: |
-      function statistic(population)
-        local areas = {}
-        for _, person in ipairs(population) do
-          if person.alive == true then
-            local area = tostring(person.area)
-            if areas[area] == nil then
-              areas[area] = { total = 0, alive = 0 }
-            end
-            areas[area].total = areas[area].total + 1
-            if person.alive == true then
-              areas[area].alive = areas[area].alive + 1
-            end
-          end
-        end
-        return areas
-      end
-```
-
 ## Input Data Format
 
 The system accepts any CSV file with a header row. Column types are automatically detected:
@@ -409,14 +351,6 @@ person_id,age,sex,area,alive,previous_area
 ```
 
 ## Output
-
-### Console Output
-The simulation outputs real-time statistics including:
-- Population counts (alive/dead)
-- Age distribution
-- Area distribution
-- Migration statistics (migrants, migration rate)
-- Average age by area
 
 ### CSV Output
 The final population state is saved as CSV with all columns preserved, including:
@@ -754,7 +688,6 @@ Writing Talos models is easy, but sometimes you need a little help getting start
 The template provides the AI with:
 - **Context**: What Talos is and how it works
 - **Examples**: Working models for aging, mortality, fertility, migration, education, and income
-- **Statistics**: Common statistics like age distribution, sex distribution, dependency ratio
 - **Templates**: Ready-to-use YAML configuration templates
 - **Structure**: The exact format needed for Talos models
 
@@ -764,7 +697,6 @@ Once you've pasted the template into your AI assistant, you can ask:
 
 - "I want to add a model where people get married. Women marry at age 20-30, men at 22-35."
 - "I need a fertility model where fertility rates vary by age: 15-19: 2%, 20-24: 8%, 25-29: 10%, 30-34: 8%, 35-39: 4%, 40-44: 1%"
-- "How do I create a statistic that shows the median age of the population?"
 - "I want migration to depend on distance between areas."
 - "I need a household formation model where young adults leave their parents' household."
 
