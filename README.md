@@ -1,12 +1,12 @@
 <div align="left">
   <img src="img/Talos.png" alt="Talos Logo" width="300" height="300">
-  <p><em>Talos — Migration Microsimulation Engine</em></p>
+  <p><em>Talos — Microsimulation Engine</em></p>
 </div>
 
 # Talos
-## Migration Microsimulation Engine
+## Microsimulation Engine
 
-A fully self-contained, dynamically configurable demographic microsimulation system written in Go. **Talos is specifically designed as a migration microsimulation model** that simulates population movement between geographic areas while also handling other demographic processes like aging and mortality.
+A fully self-contained, dynamically configurable demographic microsimulation system written in Go. **Talos is a general-purpose microsimulation engine** that can simulate population dynamics including migration, aging, mortality, fertility, and other demographic processes.
 
 ---
 
@@ -90,14 +90,14 @@ Talos is a single, self-contained executable that:
 
 ## Overview
 
-Talos is a **migration-focused microsimulation engine** that models population dynamics through individual-level simulation. Unlike traditional microsimulation systems that require code changes for each new model, Talos uses:
+Talos is a **general-purpose microsimulation engine** that models population dynamics through individual-level simulation. Unlike traditional microsimulation systems that require code changes for each new model, Talos uses:
 
 - **Lua scripts** for model logic (flexible and readable)
 - **YAML configuration** for model parameters, migration rates, and execution order
 - **CSV files** for population data (works with any column structure)
 - **Pure Go data structures** for in-memory processing (no external dependencies)
 
-The result is a single, self-contained executable that can be distributed and run on any system without installation requirements. **Talos's primary strength is its ability to model complex migration patterns** with age-specific probabilities, area tracking, and configurable destination selection.
+The result is a single, self-contained executable that can be distributed and run on any system without installation requirements. **Talos can model a wide range of demographic processes** including migration, aging, mortality, fertility, education, income, household formation, and more.
 
 ## Tutorials
 
@@ -111,11 +111,11 @@ Get started with Talos through our step-by-step tutorials. Each tutorial builds 
 
 ## Key Features
 
-### Migration-Focused Capabilities
-- **Age-Specific Migration Probabilities**: Different migration rates for children, young adults, middle-aged, and elderly populations
-- **Area Tracking**: Tracks current and previous areas for migration history analysis
-- **Random Destination Selection**: Migrants choose from multiple destination areas
-- **Flexible Migration Logic**: Easily modify migration rules through YAML configuration
+### General Microsimulation Capabilities
+- **Age-Specific Models**: Different transition probabilities for different age groups
+- **Flexible Model Logic**: Easily modify or add new models through YAML configuration
+- **Priority-Based Execution**: Models run in specified priority order
+- **Dynamic Data Handling**: Automatically detects and adapts to any CSV column structure
 
 ### General Features
 - **Zero External Dependencies**: Pure Go implementation with embedded Lua - no C compiler, no external libraries required
@@ -123,32 +123,31 @@ Get started with Talos through our step-by-step tutorials. Each tutorial builds 
 - **Fully Dynamic Data Handling**: Automatically detects and adapts to any CSV column structure
 - **Lua-Based Models**: Define complex demographic transitions using clean, readable Lua scripts
 - **Parameter Substitution**: Use parameters like `{fertility_rate}` in Lua scripts for flexible configuration
-- **Priority-Based Execution**: Models run in specified priority order (age, mortality, migration)
+- **Priority-Based Execution**: Models run in specified priority order
 - **In-Memory Processing**: Fast, in-memory Go data structures for population data
 - **Reproducible Results**: Fixed random seeds for consistent simulation outcomes
 
-## Migration Model
+## Example Models
 
-Talos's migration model is designed to be simple yet powerful, allowing researchers to simulate realistic population movement patterns.
+Talos can model a wide range of demographic processes. Here are some examples:
 
-### How Migration Works
+### Migration Model
+People move between areas based on age-specific probabilities. Young adults are most mobile, elderly are least mobile.
 
-1. **Current Area Tracking**: Each individual has an `area` column indicating their current location
-2. **Previous Area Tracking**: The `previous_area` column stores where they were before migration
-3. **Age-Based Probabilities**: Migration likelihood varies by age group (most mobile: 18-34; least: 65+)
-4. **Random Destination**: When migrating, individuals move to a random area (configurable)
-5. **Temporal Dynamics**: Migration probabilities apply annually during the simulation
+### Fertility Model
+Women of childbearing age give birth based on age-specific fertility rates. Babies inherit characteristics from their mothers.
 
-### Migration Probabilities by Age
+### Mortality Model
+People die based on age-specific death probabilities. Mortality rates increase with age.
 
-| Age Group | Probability (per year) | Rationale |
-|-----------|----------------------|-----------|
-| 0-17      | 2%                   | Children move with families |
-| 18-34     | 8%                   | Most mobile - education, jobs, housing |
-| 35-64     | 3%                   | Career-established, less mobile |
-| 65+       | 1%                   | Retired, least mobile |
+### Education Model
+Children progress through primary, secondary, and tertiary education based on age.
 
-These rates are fully configurable in the YAML configuration file.
+### Income Model
+People earn income based on age, education, and sex.
+
+### Household Formation Model
+Young adults form new households, children live with their parents.
 
 ## Quick Start
 
@@ -540,7 +539,6 @@ Add the directory containing `talos-windows-amd64.exe` to your PATH, or rename t
 - **Lua Execution**: Lua scripts are interpreted but optimized for demographic modeling
 - **Batch Processing**: Models operate on the full population each iteration
 - **Memory Usage**: Approximately 1-2MB per 1000 individuals
-- **Migration Performance**: Migration runs as a single Lua loop, very fast even for large populations
 
 ### Performance Benchmarks
 
@@ -553,51 +551,26 @@ Add the directory containing `talos-windows-amd64.exe` to your PATH, or rename t
 
 *Benchmarks on Intel Core i7, 16GB RAM, SSD*
 
-## Extending the Migration Model
+## Extending Talos
 
-### Adding New Migration Rules
+### Adding New Models
 
 1. Edit `config.yaml`:
 
 ```yaml
 models:
-  - name: "migration"
+  - name: "my_new_model"
     type: "lua_model"
     priority: 3
     enabled: true
+    description: "My custom model"
     parameters:
-      migration_rates:
-        child_0_17: 0.02
-        adult_18_34: 0.08
-        # Add new age group
-        student_18_25: 0.10
-      num_areas: 5
+      rate: 0.01
       script: |
         function transition(population, params)
-          local rates = params.migration_rates
-          local num_areas = params.num_areas
-          
           for _, person in ipairs(population) do
             if person.alive == true then
-              local age = person.age
-              local prob = 0
-              
-              if age < 18 then
-                prob = rates.child_0_17
-              elseif age >= 18 and age < 25 then
-                prob = rates.student_18_25
-              elseif age >= 25 and age < 35 then
-                prob = rates.adult_18_34
-              elseif age >= 35 and age < 65 then
-                prob = rates.adult_35_64
-              else
-                prob = rates.elderly_65_plus
-              end
-              
-              if math.random() < prob then
-                person.previous_area = person.area
-                person.area = math.random(1, num_areas)
-              end
+              -- Your model logic here
             end
           end
           return population
@@ -605,70 +578,6 @@ models:
 ```
 
 2. No code changes required!
-
-### Adding Destination Preferences
-
-```lua
--- Weighted random: 30% chance of area 1, 20% chance of area 2
-if math.random() < prob then
-  person.previous_area = person.area
-  local r = math.random()
-  if r < 0.3 then
-    person.area = 1
-  elseif r < 0.5 then
-    person.area = 2
-  else
-    person.area = math.random(1, num_areas)
-  end
-end
-```
-
-### Adding Distance-Based Migration
-
-```lua
--- Only move to adjacent areas
-if math.random() < prob then
-  person.previous_area = person.area
-  local r = math.random()
-  if r < 0.33 then
-    person.area = person.area - 1
-  elseif r < 0.66 then
-    person.area = person.area + 1
-  end
-end
-```
-
-### Adding Household Migration
-
-For household-level migration, add a household_id column and modify the migration script:
-
-```lua
--- Identify households where the head moves
-function transition(population, params)
-  local moving_households = {}
-  
-  -- First pass: identify households that move
-  for _, person in ipairs(population) do
-    if person.alive == true 
-       and person.age >= 18 and person.age < 35
-       and math.random() < 0.08 then
-      moving_households[person.household_id] = math.random(1, 5)
-    end
-  end
-  
-  -- Second pass: move all members of moving households
-  for _, person in ipairs(population) do
-    if person.alive == true then
-      if moving_households[person.household_id] then
-        person.previous_area = person.area
-        person.area = moving_households[person.household_id]
-      end
-    end
-  end
-  
-  return population
-end
-```
 
 ---
 
@@ -699,67 +608,6 @@ Once you've pasted the template into your AI assistant, you can ask:
 - "I need a fertility model where fertility rates vary by age: 15-19: 2%, 20-24: 8%, 25-29: 10%, 30-34: 8%, 35-39: 4%, 40-44: 1%"
 - "I want migration to depend on distance between areas."
 - "I need a household formation model where young adults leave their parents' household."
-
-### Example AI Response
-
-When you ask "I want a fertility model where fertility rates vary by age," the AI will generate something like:
-
-```lua
-function transition(population, params)
-  local newborns = {}
-  
-  local max_id = 0
-  for _, person in ipairs(population) do
-    if person.person_id ~= nil and person.person_id > max_id then
-      max_id = person.person_id
-    end
-  end
-  
-  for _, person in ipairs(population) do
-    if person.alive == true and person.sex == "F" then
-      local age = person.age
-      local rate = 0
-      
-      if age >= 15 and age < 20 then
-        rate = 0.02
-      elseif age >= 20 and age < 25 then
-        rate = 0.08
-      elseif age >= 25 and age < 30 then
-        rate = 0.10
-      elseif age >= 30 and age < 35 then
-        rate = 0.08
-      elseif age >= 35 and age < 40 then
-        rate = 0.04
-      elseif age >= 40 and age < 45 then
-        rate = 0.01
-      elseif age >= 45 and age < 50 then
-        rate = 0.001
-      end
-      
-      if math.random() < rate then
-        max_id = max_id + 1
-        local baby = {
-          person_id = max_id,
-          age = 0,
-          sex = math.random() < 0.5 and "F" or "M",
-          area = person.area,
-          alive = true,
-          mother_id = person.person_id
-        }
-        table.insert(newborns, baby)
-      end
-    end
-  end
-  
-  for _, baby in ipairs(newborns) do
-    table.insert(population, baby)
-  end
-  
-  return population
-end
-```
-
-Then the AI will show you exactly how to add it to your `config.yaml`.
 
 ### Get the Template
 
