@@ -6,7 +6,7 @@
 # Talos
 ## Microsimulation Engine
 
-A fully self-contained, dynamically configurable demographic microsimulation system written in Go. **Talos is a general-purpose microsimulation engine** that can simulate population dynamics including migration, aging, mortality, fertility, and other demographic processes.
+Named after the bronze automaton from Greek mythology, Talos is a self-contained, dynamically configurable demographic microsimulation system written in Go. **Talos is a general-purpose microsimulation engine** that can simulate population dynamics including migration, aging, mortality, fertility, and other demographic processes.
 
 ---
 
