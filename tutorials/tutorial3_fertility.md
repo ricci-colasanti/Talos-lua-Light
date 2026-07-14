@@ -532,19 +532,45 @@ In our current model, babies only inherit the mother's area. But in reality, bab
 
 **In plain English:** "When a baby is born, copy the mother's ethnicity, education, and other characteristics to the baby."
 
-### The Updated Lua Script
+### The Updated CSV with Mother's Characteristics
 
-First, let's add some columns to our CSV:
+First, let's create a population file with the additional columns needed. Create a file called `population_with_ethnicity.csv`:
 
 ```csv
 person_id,age,sex,area,alive,ethnicity,education,income
 1,25,F,1,true,White,tertiary,45000
 2,30,M,1,true,White,secondary,35000
 3,45,F,1,true,Asian,tertiary,52000
-...
+4,68,M,1,true,Black,secondary,28000
+5,82,F,1,true,White,primary,15000
+6,2,M,1,true,Asian,primary,0
+7,15,F,1,true,White,secondary,0
+8,35,M,1,true,Black,tertiary,48000
+9,55,F,1,true,Asian,secondary,32000
+10,70,M,1,true,White,primary,18000
+11,5,F,1,true,Asian,primary,0
+12,40,M,1,true,Black,tertiary,55000
+13,60,F,1,true,White,secondary,30000
+14,75,M,1,true,Asian,primary,12000
+15,20,F,1,true,White,secondary,25000
 ```
 
-Now, update the fertility script to copy these characteristics:
+**Columns explained:**
+
+| Column | Description |
+|--------|-------------|
+| `person_id` | Unique identifier for each individual |
+| `age` | Age in years |
+| `sex` | Gender (M/F) |
+| `area` | Geographic area (1-5) |
+| `alive` | Whether the person is alive (true/false) |
+| `ethnicity` | Ethnic group (White, Asian, Black, etc.) |
+| `education` | Highest education level (primary, secondary, tertiary) |
+| `income` | Annual income |
+
+### The Updated Lua Script
+
+Now, update the fertility script to copy these characteristics from the mother:
 
 ```lua
 function transition(population, params)
@@ -591,12 +617,187 @@ end
 
 ### What's Changed
 
-We added:
+We added three new fields to the baby table:
 - `ethnicity = person.ethnicity` - Copy mother's ethnicity
 - `education = "none"` - Set a default for babies
 - `income = 0` - Set a default for babies
 
 Now babies inherit their mother's ethnicity!
+
+### The Complete Configuration with Ethnicity
+
+```yaml
+# config_aging_mortality_fertility_ethnicity.yaml
+# Complete demographic model with aging, mortality, and fertility
+# Including ethnicity inheritance
+
+simulation:
+  iterations: 10
+  population_file: "population_with_ethnicity.csv"
+  output_file: "population_ethnicity_output.csv"
+  random_seed: 42
+  verbose: true
+  id_column: "person_id"
+
+models:
+  # Model 1: Age increment
+  - name: "age_increment"
+    type: "lua_model"
+    priority: 1
+    enabled: true
+    description: "Increment everyone's age by 1 year"
+    parameters:
+      script: |
+        function transition(population, params)
+          for _, person in ipairs(population) do
+            if person.alive == true then
+              person.age = person.age + 1
+            end
+          end
+          return population
+        end
+
+  # Model 2: Mortality
+  - name: "mortality"
+    type: "lua_model"
+    priority: 2
+    enabled: true
+    description: "Age-specific mortality: 0.1% for under 30, 5% for 30+"
+    parameters:
+      script: |
+        function transition(population, params)
+          for _, person in ipairs(population) do
+            if person.alive == true then
+              local age = person.age
+              local prob = 0
+              
+              if age < 30 then
+                prob = 0.001
+              else
+                prob = 0.05
+              end
+              
+              if math.random() < prob then
+                person.alive = false
+              end
+            end
+          end
+          return population
+        end
+
+  # Model 3: Fertility with ethnicity inheritance
+  - name: "fertility"
+    type: "lua_model"
+    priority: 3
+    enabled: true
+    description: "Fertility with mother's characteristics copied to child"
+    parameters:
+      fertility_rate: 0.05
+      script: |
+        function transition(population, params)
+          local fertility_rate = params.fertility_rate
+          local newborns = {}
+          
+          local max_id = 0
+          for _, person in ipairs(population) do
+            if person.person_id ~= nil and person.person_id > max_id then
+              max_id = person.person_id
+            end
+          end
+          
+          for _, person in ipairs(population) do
+            if person.alive == true and person.sex == "F" then
+              local age = person.age
+              if age >= 15 and age < 50 then
+                if math.random() < fertility_rate then
+                  max_id = max_id + 1
+                  local baby = {
+                    person_id = max_id,
+                    age = 0,
+                    sex = math.random() < 0.5 and "F" or "M",
+                    area = person.area,
+                    alive = true,
+                    ethnicity = person.ethnicity,
+                    education = "none",
+                    income = 0
+                  }
+                  table.insert(newborns, baby)
+                end
+              end
+            end
+          end
+          
+          for _, baby in ipairs(newborns) do
+            table.insert(population, baby)
+          end
+          
+          return population
+        end
+```
+
+### Running the Model with Ethnicity
+
+Save the configuration as `config_aging_mortality_fertility_ethnicity.yaml` and run it:
+
+```bash
+./talos config_aging_mortality_fertility_ethnicity.yaml
+```
+
+### Expected Output
+
+```
+2024/01/15 10:00:00 ═══ Talos-Pure: Migration Microsimulation ═══
+2024/01/15 10:00:00 Iterations: 10
+2024/01/15 10:00:00 Population file: population_with_ethnicity.csv
+2024/01/15 10:00:00 ID column: person_id
+2024/01/15 10:00:00 Models loaded: 3
+2024/01/15 10:00:00 Loaded 15 individuals with 7 columns
+2024/01/15 10:00:00 Columns: [person_id age sex area alive ethnicity education income]
+2024/01/15 10:00:00 Enabled models: 3
+2024/01/15 10:00:00   - age_increment (priority: 1)
+2024/01/15 10:00:00   - mortality (priority: 2)
+2024/01/15 10:00:00   - fertility (priority: 3)
+
+2024/01/15 10:00:00 ═══ Iteration 1/10 ═══
+2024/01/15 10:00:00   ▶ age_increment
+2024/01/15 10:00:00   ▶ mortality
+2024/01/15 10:00:00   ▶ fertility
+
+...
+
+2024/01/15 10:00:00 ═══ Simulation Complete ═══
+2024/01/15 10:00:00 Results saved to population_ethnicity_output.csv
+```
+
+### Examining the Output CSV
+
+After running the simulation, open `population_ethnicity_output.csv`:
+
+```csv
+person_id,age,sex,area,alive,ethnicity,education,income
+1,35,F,1,true,White,tertiary,45000
+2,40,M,1,true,White,secondary,35000
+3,55,F,1,true,Asian,tertiary,52000
+4,78,M,1,true,Black,secondary,28000
+5,92,F,1,true,White,primary,15000
+6,12,M,1,true,Asian,primary,0
+7,25,F,1,true,White,secondary,0
+8,45,M,1,true,Black,tertiary,48000
+9,65,F,1,true,Asian,secondary,32000
+10,80,M,1,true,White,primary,18000
+11,15,F,1,true,Asian,primary,0
+12,50,M,1,true,Black,tertiary,55000
+13,70,F,1,true,White,secondary,30000
+14,85,M,1,true,Asian,primary,12000
+15,30,F,1,true,White,secondary,25000
+16,0,M,1,true,White,none,0
+17,0,F,1,true,Asian,none,0
+```
+
+**Notice:**
+- Person 16 is a newborn male with `ethnicity = White` (inherited from mother)
+- Person 17 is a newborn female with `ethnicity = Asian` (inherited from mother)
+- Both have `education = "none"` and `income = 0`
 
 ---
 
@@ -609,6 +810,38 @@ We want to track which mother had which child.
 ### What We Want to Do
 
 **In plain English:** "When a baby is born, record the mother's ID. This allows us to track family relationships."
+
+### The Updated CSV with Mother-Child Tracking
+
+Create a file called `population_with_family.csv`:
+
+```csv
+person_id,age,sex,area,alive,partner_id,mother_id,father_id,parity,ethnicity,education,income
+1,25,F,1,true,0,0,0,0,White,tertiary,45000
+2,30,M,1,true,1,0,0,0,White,secondary,35000
+3,45,F,1,true,0,0,0,2,Asian,tertiary,52000
+4,68,M,1,true,0,0,0,0,Black,secondary,28000
+5,82,F,1,true,0,0,0,0,White,primary,15000
+6,2,M,1,true,0,3,0,0,Asian,primary,0
+7,15,F,1,true,0,0,0,0,White,secondary,0
+8,35,M,1,true,0,0,0,0,Black,tertiary,48000
+9,55,F,1,true,0,0,0,3,Asian,secondary,32000
+10,70,M,1,true,0,0,0,0,White,primary,18000
+11,5,F,1,true,0,9,0,0,Asian,primary,0
+12,40,M,1,true,0,0,0,0,Black,tertiary,55000
+13,60,F,1,true,0,0,0,0,White,secondary,30000
+14,75,M,1,true,0,0,0,0,Asian,primary,12000
+15,20,F,1,true,0,0,0,0,White,secondary,25000
+```
+
+**New columns explained:**
+
+| Column | Description |
+|--------|-------------|
+| `partner_id` | ID of partner/spouse (0 if none) |
+| `mother_id` | ID of mother (0 if unknown) |
+| `father_id` | ID of father (0 if unknown) |
+| `parity` | Number of children a woman has had |
 
 ### The Updated Lua Script
 
@@ -638,7 +871,11 @@ function transition(population, params)
             area = person.area,
             alive = true,
             mother_id = person.person_id,  -- Track the mother
-            parity = 0                     -- First child
+            father_id = person.partner_id or 0,  -- Track the father (if known)
+            parity = 0,                    -- First child
+            ethnicity = person.ethnicity,
+            education = "none",
+            income = 0
           }
           table.insert(newborns, baby)
           
@@ -672,9 +909,10 @@ end
 
 We added:
 1. **`mother_id = person.person_id`** - Track which mother had the baby
-2. **`parity = 0`** - Each baby starts with parity 0 (their own children count)
-3. **`mothers_to_update`** - Track which mothers need their parity updated
-4. **Second pass** - Update each mother's parity
+2. **`father_id = person.partner_id or 0`** - Track the father if the mother has a partner
+3. **`parity = 0`** - Each baby starts with parity 0 (their own children count)
+4. **`mothers_to_update`** - Track which mothers need their parity updated
+5. **Second pass** - Update each mother's parity
 
 ### Understanding Parity
 
